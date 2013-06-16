@@ -2,6 +2,7 @@
 
 # C extensions
 *.so
+*.o
 
 # Packages
 *.egg
@@ -29,7 +30,5 @@ nosetests.xml
 # Translations
 *.mo
 
-# Mr Developer
-.mr.developer.cfg
-.project
-.pydevproject
+# Editor files
+*~
