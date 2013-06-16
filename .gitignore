@@ -1,8 +1,9 @@
 *.py[cod]
 
-# C extensions
+# C extensions and binaries
 *.so
 *.o
+giljoypy
 
 # Packages
 *.egg

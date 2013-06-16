@@ -23,6 +23,20 @@ static PyThreadState* (*real_PyEval_SaveThread)(void) = 0;
 static void (*real_PyEval_RestoreThread)(PyThreadState *tstate) = 0;
 
 /*
+Load a symbol from the actual place that provides it.
+*/
+static void* loadsym(const char* symbol)
+{
+    void* result = dlsym( RTLD_NEXT , symbol);
+    if (!result) {
+        fprintf(stderr, "Error loading symbol: %s\n", dlerror());
+        exit(1);
+    }
+    return result;
+}
+
+
+/*
 For each pair of acquire/release functions, we store the start time on
 release, and store the finish time after GIL re-acquisition finishes. (Elapsed
 time measured before acquisition finished might erroneously and unfairly count
@@ -31,16 +45,18 @@ time waiting for GIL to be available as time running with GIL unreleased.)
 We use thread-specific storage to make sure different threads don't interfere
 with each other.
 */
-static __thread timeval tss_release_time;
-static __thread timeval tss_acquire_time;
+static __thread struct timeval tss_release_time;
+static __thread struct timeval tss_acquire_time;
 
 static void store_release_time()
 {
+    fprintf(stderr, "Release!\n");
     gettimeofday(&tss_release_time, NULL);
 }
 
 static void store_acquire_time()
 {
+    fprintf(stderr, "Acquired!\n");
     gettimeofday(&tss_acquire_time, NULL);
 }
 
@@ -109,9 +125,8 @@ uint64_t giljoy_released_time()
 }
 
 
-void __attribute__ ((constructor)) _giljoypreload_init(void)
+int main(int argc, char *argv[])
 {
-    /* Make sure interpreter lock exists as soon as possible. */
     PyEval_InitThreads();
     /* Get references to underlying functions that we are proxying. */
     real_PyEval_AcquireLock = loadsym("PyEval_AcquireLock");
@@ -120,4 +135,6 @@ void __attribute__ ((constructor)) _giljoypreload_init(void)
     real_PyEval_ReleaseThread = loadsym("PyEval_ReleaseThread");
     real_PyEval_SaveThread = loadsym("PyEval_SaveThread");
     real_PyEval_RestoreThread = loadsym("PyEval_RestoreThread");
+
+    return Py_Main(argc, argv);
 }
