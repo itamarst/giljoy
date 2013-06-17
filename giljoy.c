@@ -7,6 +7,7 @@
 
 #include <Python.h>
 #include <pythread.h>
+#include <frameobject.h>
 
 /*
 We want to track the amount of time spent with the GIL released. Unfortunately
@@ -124,10 +125,31 @@ uint64_t giljoy_released_time()
     return result;
 }
 
+/*
+No need for thread-specific storage, since only one thread can be running
+Python code at a time.
+*/
+/*static struct timeval c_call_time;
+  static struct timeval c_done_time;*/
+
+static int giljoy_trace(PyObject *obj, PyFrameObject *frame, int what, PyObject *arg)
+{
+    PyObject* name = NULL;
+    if (what == PyTrace_C_CALL) {
+        name = PyObject_Str(arg);
+        fprintf(stderr, "C call: %s\n", PyString_AsString(name));
+        Py_DECREF(name);
+    } else if (what == PyTrace_C_RETURN || what == PyTrace_C_EXCEPTION) {
+        name = PyObject_Str(arg);
+        fprintf(stderr, "C return or exception: %s\n", PyString_AsString(name));
+        Py_DECREF(name);
+    }
+    return 0;
+}
 
 int main(int argc, char *argv[])
 {
-    PyEval_InitThreads();
+    Py_Initialize();
     /* Get references to underlying functions that we are proxying. */
     real_PyEval_AcquireLock = loadsym("PyEval_AcquireLock");
     real_PyEval_ReleaseLock = loadsym("PyEval_ReleaseLock");
@@ -135,6 +157,8 @@ int main(int argc, char *argv[])
     real_PyEval_ReleaseThread = loadsym("PyEval_ReleaseThread");
     real_PyEval_SaveThread = loadsym("PyEval_SaveThread");
     real_PyEval_RestoreThread = loadsym("PyEval_RestoreThread");
-
+    /* Install trace function. */
+    PyEval_SetProfile(giljoy_trace, NULL);
+    /* Run normal Python interpreter. */
     return Py_Main(argc, argv);
 }

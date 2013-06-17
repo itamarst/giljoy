@@ -1,4 +1,4 @@
-PYTHON_VERSION=2.7
+PYTHON_VERSION=2.7_d
 PYTHON_INCLUDE=/usr/include/python${PYTHON_VERSION}
 
 build: giljoy.c
